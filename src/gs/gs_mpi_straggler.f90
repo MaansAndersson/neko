@@ -206,6 +206,7 @@ contains
 
     u_temp = u
 
+    ! Add a timeout version.
     do while (nreqs .gt. 0)
        do i = 1, size(this%recv_pe)
           if (.not. this%recv_buf(i)%flag) then
@@ -248,7 +249,6 @@ contains
        end do
     end do
 
-
     nreqs = int(size(this%recv_pe)*0.2)
     ! Cancel the requsts that were not recieved on time
     ! and handle other side, could be zero instead of old value?
@@ -261,16 +261,13 @@ contains
              ! What is the corresponding values here?
              !> @todo Check size etc against status
              src = this%recv_pe(i)
-             !sp => this%recv_dof(src)%array()
+             sp => this%recv_dof(src)%array()
 
              select case(op)
              case (GS_OP_ADD)
                 !NEC$ IVDEP
                 do concurrent (j = 1:this%send_dof(src)%size())
-                   u(sp(j)) = u(sp(j)) + u_temp(sp(j))!+ this%recv_buf(i)%data(j)
-                   ! Martin:
-                   ! u(sp(j)) = 1/(n_to_add(sp(j))-n_recv(sp(j))) * u(sp(j)) !+ this%recv_buf(i)%data(j)
-                   ! Redo the weights such that they are somewhat correct.
+                   u(sp(j)) = u(sp(j)) + u_temp(sp(j))
                 end do
              case (GS_OP_MUL)
                 !NEC$ IVDEP
@@ -282,7 +279,6 @@ contains
       end do
     end do
 
-    
     !@ Not necessary if cancelled.
 
     ! Finally, check that the non-blocking sends this rank have issued have also

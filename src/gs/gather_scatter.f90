@@ -40,6 +40,7 @@ module gather_scatter
   use gs_ops, only : GS_OP_ADD, GS_OP_MAX, GS_OP_MIN, GS_OP_MUL
   use gs_comm, only : gs_comm_t, GS_COMM_MPI, GS_COMM_MPIGPU
   use gs_mpi, only : gs_mpi_t
+  use gs_mpi_straggler, only : gs_mpi_straggler_t
   use gs_device_mpi, only : gs_device_mpi_t
   use mesh, only : mesh_t
   use comm
@@ -139,6 +140,9 @@ contains
     case (GS_COMM_MPI)
        call neko_log%message('Comm         :          MPI')
        allocate(gs_mpi_t::gs%comm)
+    case (GS_COMM_MPI_STRAGGLER)
+       call neko_log%message('Comm         :   Stragg MPI')
+       allocate(gs_mpi_straggler_t::gs%comm)
     case (GS_COMM_MPIGPU)
        call neko_log%message('Comm         :   Device MPI')
        allocate(gs_device_mpi_t::gs%comm)

@@ -42,6 +42,7 @@ neko_fortran_SOURCES = \
 	gs/gs_ops.f90\
 	gs/gs_comm.f90\
 	gs/gs_mpi.f90\
+	gs/gs_mpi_straggler.f90\
 	gs/bcknd/device/gs_device_mpi.F90\
 	gs/gather_scatter.f90\
 	mesh/entity.f90\
