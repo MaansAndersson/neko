@@ -195,8 +195,16 @@ contains
     integer , pointer :: sp(:)
     integer :: nreqs
 
+    real(kind=rp), dimension(n) :: u_temp
+
+
+    !integer, allocatable :: n_recv
+    !integer, dimension(n) :: n_recv !should be zero
+
     ! Here we can put a percentage or a timeout?
-    nreqs = size(this%recv_pe)
+    nreqs = int(size(this%recv_pe)*0.8)
+
+    u_temp = u
 
     do while (nreqs .gt. 0)
        do i = 1, size(this%recv_pe)
@@ -217,7 +225,8 @@ contains
                    !NEC$ IVDEP
                    do concurrent (j = 1:this%send_dof(src)%size())
                       u(sp(j)) = u(sp(j)) + this%recv_buf(i)%data(j)
-                   end do
+                      n_recv(sp(j)) += 1
+                      end do
                 case (GS_OP_MUL)
                    !NEC$ IVDEP
                    do concurrent (j = 1:this%send_dof(src)%size())
@@ -239,57 +248,55 @@ contains
        end do
     end do
 
+
+    nreqs = int(size(this%recv_pe)*0.2)
     ! Cancel the requsts that were not recieved on time
     ! and handle other side, could be zero instead of old value?
+    ! change recv_pe to send_pe.
     do while (nreqs .gt. 0)
-      do i = 1, size(this%recv_pe) 
-        if (.not. this%recv_buf(i)%flag then 
+      do i = 1, size(this%recv_pe)
+        if (.not. this%recv_buf(i)%flag then
+          nreqs = nreqs - 1
           call MPI_Cancel(this%recv_buf(i)%request)
              ! What is the corresponding values here?
              !> @todo Check size etc against status
              src = this%recv_pe(i)
-             sp => this%recv_dof(src)%array()
+             !sp => this%recv_dof(src)%array()
 
              select case(op)
              case (GS_OP_ADD)
                 !NEC$ IVDEP
                 do concurrent (j = 1:this%send_dof(src)%size())
-                   u(sp(j)) = 2 * u(sp(j)) !+ this%recv_buf(i)%data(j)
+                   u(sp(j)) = u(sp(j)) + u_temp(sp(j))!+ this%recv_buf(i)%data(j)
+                   ! Martin:
+                   ! u(sp(j)) = 1/(n_to_add(sp(j))-n_recv(sp(j))) * u(sp(j)) !+ this%recv_buf(i)%data(j)
+                   ! Redo the weights such that they are somewhat correct.
                 end do
              case (GS_OP_MUL)
                 !NEC$ IVDEP
                 do concurrent (j = 1:this%send_dof(src)%size())
-                   u(sp(j)) = u(sp(j)) ** 2 ! this%recv_buf(i)%data(j)
+                   u(sp(j)) = u(sp(j)) * u_temp(sp(j)) ! this%recv_buf(i)%data(j)
                 end do
-             !case (GS_OP_MIN)
-             !   !NEC$ IVDEP
-             !   do concurrent (j = 1:this%send_dof(src)%size())
-             !      u(sp(j)) = u(sp(j)
-             !   end do
-             !case (GS_OP_MAX)
-             !   !NEC$ IVDEP
-             !   do concurrent (j = 1:this%send_dof(src)%size())
-             !      u(sp(j)) = u(sp(j))
-             !   end do
              end select
         end if
       end do
     end do
 
-
+    
+    !@ Not necessary if cancelled.
 
     ! Finally, check that the non-blocking sends this rank have issued have also
     ! completed successfully
-    nreqs = size(this%send_pe)
-    do while (nreqs .gt. 0)
-       do i = 1, size(this%send_pe)
-          if (.not. this%send_buf(i)%flag) then
-             call MPI_Test(this%send_buf(i)%request, this%send_buf(i)%flag, &
-                  MPI_STATUS_IGNORE, ierr)
-             if (this%send_buf(i)%flag) nreqs = nreqs - 1
-          end if
-       end do
-    end do
+    !nreqs = size(this%send_pe)
+    !do while (nreqs .gt. 0)
+    !   do i = 1, size(this%send_pe)
+    !      if (.not. this%send_buf(i)%flag) then
+    !         call MPI_Test(this%send_buf(i)%request, this%send_buf(i)%flag, &
+    !              MPI_STATUS_IGNORE, ierr)
+    !         if (this%send_buf(i)%flag) nreqs = nreqs - 1
+    !      end if
+    !   end do
+    !end do
 
   end subroutine gs_nbwait_mpi
 
