@@ -195,16 +195,12 @@ contains
     integer , pointer :: sp(:)
     integer :: nreqs
 
+    ! Temporary u used for straggling messages
     real(kind=rp), dimension(n) :: u_temp
-
-
-    !integer, allocatable :: n_recv
-    !integer, dimension(n) :: n_recv !should be zero
+    u_temp = u
 
     ! Here we can put a percentage or a timeout?
     nreqs = int(size(this%recv_pe)*0.8)
-
-    u_temp = u
 
     ! Add a timeout version.
     do while (nreqs .gt. 0)
@@ -226,7 +222,6 @@ contains
                    !NEC$ IVDEP
                    do concurrent (j = 1:this%send_dof(src)%size())
                       u(sp(j)) = u(sp(j)) + this%recv_buf(i)%data(j)
-                      n_recv(sp(j)) += 1
                       end do
                 case (GS_OP_MUL)
                    !NEC$ IVDEP
@@ -279,7 +274,7 @@ contains
       end do
     end do
 
-    !@ Not necessary if cancelled.
+    !@ Not necessary if cancelled correctly.
 
     ! Finally, check that the non-blocking sends this rank have issued have also
     ! completed successfully
