@@ -36,6 +36,7 @@ submodule (precon) precon_fctry
   use jacobi, only : jacobi_t
   use sx_jacobi, only : sx_jacobi_t
   use device_jacobi, only : device_jacobi_t
+  use inexact_pc, only : inexact_pc_t
   use hsmg, only : hsmg_t
   use phmg, only : phmg_t
   use utils, only : concat_string_array, neko_error
@@ -44,6 +45,7 @@ submodule (precon) precon_fctry
 
   ! List of all possible types created by the factory routine
   character(len=20) :: PC_KNOWN_TYPES(4) = [character(len=20) :: &
+     "inxact", &
      "jacobi", &
      "hsmg", &
      "phmg", &
@@ -70,8 +72,10 @@ contains
        else
           allocate(jacobi_t::pc)
        end if
+    !else if (type_name(1:4) .eq. 'inex') then
+    !   allocate(inexact_pc_t::pc)
     else if (type_name(1:4) .eq. 'hsmg') then
-       allocate(hsmg_t::pc)
+       allocate(hsmg_t::pc):
     else if (type_name(1:4) .eq. 'phmg') then
        if (NEKO_BCKND_DEVICE .eq. 1) then
           call neko_error('Hybrid ph multigrid only supported for CPU')
@@ -99,6 +103,8 @@ contains
 
     if (allocated(pc)) then
        select type (pcp => pc)
+       type is (inexact_pc_t)
+          call pcp%free()
        type is (jacobi_t)
           call pcp%free()
        type is (sx_jacobi_t)

@@ -197,13 +197,17 @@ contains
 
     ! Temporary u used for straggling messages
     real(kind=rp), dimension(n) :: u_temp
+    ! Borde vara this
+    real(kind=rp) :: tau
+
+    tau = 0.7
     u_temp = u
 
     ! Here we can put a percentage or a timeout?
-    nreqs = int(size(this%recv_pe)*0.8)
+    nreqs = int(size(this%recv_pe)*tau)
 
     ! Add a timeout version.
-    do while (nreqs .gt. 0)
+    do while (nreqs .gt. 0) !.or. (timeout)
        do i = 1, size(this%recv_pe)
           if (.not. this%recv_buf(i)%flag) then
              ! Check if we have recieved the data we want
@@ -222,7 +226,7 @@ contains
                    !NEC$ IVDEP
                    do concurrent (j = 1:this%send_dof(src)%size())
                       u(sp(j)) = u(sp(j)) + this%recv_buf(i)%data(j)
-                      end do
+                   end do
                 case (GS_OP_MUL)
                    !NEC$ IVDEP
                    do concurrent (j = 1:this%send_dof(src)%size())
@@ -244,7 +248,7 @@ contains
        end do
     end do
 
-    nreqs = int(size(this%recv_pe)*0.2)
+    nreqs = int(size(this%recv_pe)*(1-tau))
     ! Cancel the requsts that were not recieved on time
     ! and handle other side, could be zero instead of old value?
     ! change recv_pe to send_pe.
@@ -253,23 +257,23 @@ contains
         if (.not. this%recv_buf(i)%flag then
           nreqs = nreqs - 1
           call MPI_Cancel(this%recv_buf(i)%request)
-             ! What is the corresponding values here?
-             !> @todo Check size etc against status
-             src = this%recv_pe(i)
-             sp => this%recv_dof(src)%array()
+          ! What is the corresponding values here?
+          !> @todo Check size etc against status
+          src = this%recv_pe(i)
+          sp => this%recv_dof(src)%array()
 
-             select case(op)
-             case (GS_OP_ADD)
-                !NEC$ IVDEP
-                do concurrent (j = 1:this%send_dof(src)%size())
-                   u(sp(j)) = u(sp(j)) + u_temp(sp(j))
-                end do
-             case (GS_OP_MUL)
-                !NEC$ IVDEP
-                do concurrent (j = 1:this%send_dof(src)%size())
-                   u(sp(j)) = u(sp(j)) * u_temp(sp(j)) ! this%recv_buf(i)%data(j)
-                end do
-             end select
+          select case(op)
+          case (GS_OP_ADD)
+             !NEC$ IVDEP
+             do concurrent (j = 1:this%send_dof(src)%size())
+                u(sp(j)) = u(sp(j)) + u_temp(sp(j))
+             end do
+          case (GS_OP_MUL)
+             !NEC$ IVDEP
+             do concurrent (j = 1:this%send_dof(src)%size())
+                u(sp(j)) = u(sp(j)) * u_temp(sp(j))
+             end do
+          end select
         end if
       end do
     end do
