@@ -58,7 +58,7 @@ module gather_scatter
   implicit none
   private
   !temp
-  integer, public, parameter :: GS_COMM_MPI_STRAGGLER = 3
+  integer, public, parameter :: GS_COMM_MPI_STRAGGLER = 4
 
   type, public :: gs_t
      real(kind=rp), allocatable :: local_gs(:) !< Buffer for local gs-ops
