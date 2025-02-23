@@ -254,7 +254,7 @@ contains
     ! change recv_pe to send_pe.
     do while (nreqs .gt. 0)
       do i = 1, size(this%recv_pe)
-        if (.not. this%recv_buf(i)%flag then
+        if (.not. this%recv_buf(i)%flag) then
           nreqs = nreqs - 1
           call MPI_Cancel(this%recv_buf(i)%request)
           ! What is the corresponding values here?

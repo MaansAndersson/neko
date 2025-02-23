@@ -56,6 +56,8 @@ module gather_scatter
   use, intrinsic :: iso_c_binding, only : c_ptr, C_NULL_PTR
   implicit none
   private
+  !temp
+  integer, public, parameter :: GS_COMM_MPI_STRAGGLER = 3
 
   type, public :: gs_t
      real(kind=rp), allocatable :: local_gs(:) !< Buffer for local gs-ops
@@ -116,6 +118,8 @@ contains
     integer :: avg_strtgy, env_len
     character(len=255) :: env_strtgy
     real(kind=dp) :: strtgy_time(4)
+
+    !temp
 
     call gs%free()
 
