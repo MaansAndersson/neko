@@ -44,6 +44,7 @@ neko_fortran_SOURCES = \
 	gs/gs_mpi.f90\
 	gs/gs_mpi_straggler.f90\
 	gs/bcknd/device/gs_device_mpi.F90\
+	gs/bcknd/device/gs_device_nccl.F90\
 	gs/gather_scatter.f90\
 	mesh/entity.f90\
 	mesh/point.f90\
@@ -255,6 +256,7 @@ neko_fortran_SOURCES = \
 	math/bcknd/device/ax_helm_device.F90\
 	math/bcknd/device/ax_helm_full_device.F90\
 	common/projection.f90\
+	common/projection_vel.f90\
 	common/bcknd/device/device_projection.F90\
 	comm/parmetis.F90\
 	comm/redist.f90\
@@ -357,8 +359,9 @@ neko_c_SOURCES = \
 	common/sighdl.c\
 	common/cpuid.c\
 	gs/bcknd/device/device_mpi.c\
+	gs/bcknd/device/device_nccl.c\
 	math/bcknd/device/device_mpi_reduce.c\
-	math/bcknd/device/cuda/device_nccl_reduce.c
+	math/bcknd/device/device_nccl_reduce.c
 
 libneko_la_SOURCES = \
 	$(neko_fortran_SOURCES)\
@@ -681,8 +684,8 @@ EXTRA_DIST = \
 	sem/bcknd/device/opencl/coef_kernel.cl\
 	math/bcknd/device/device_mpi_reduce.h\
 	math/bcknd/device/device_mpi_op.h\
-	math/bcknd/device/cuda/device_nccl_reduce.h\
-	math/bcknd/device/cuda/device_nccl_op.h\
+	math/bcknd/device/device_nccl_reduce.h\
+	math/bcknd/device/device_nccl_op.h\
 	source_terms/bcknd/device/cuda/filter_kernels.h\
 	source_terms/bcknd/device/hip/filter_kernels.h\
 	source_terms/bcknd/device/opencl/filter_kernels.cl\
