@@ -39,7 +39,7 @@ module gather_scatter
   use gs_cpu, only : gs_cpu_t
   use gs_ops, only : GS_OP_ADD, GS_OP_MAX, GS_OP_MIN, GS_OP_MUL
   use gs_comm, only : gs_comm_t, GS_COMM_MPI, GS_COMM_MPIGPU, GS_COMM_NCCL, &
-       GS_COMM_NVSHMEM
+       GS_COMM_NVSHMEM, GS_COMM_MPI_STRAGGLER
   use gs_mpi, only : gs_mpi_t
   use gs_mpi_straggler, only : gs_mpi_straggler_t
   use gs_device_mpi, only : gs_device_mpi_t
@@ -60,7 +60,6 @@ module gather_scatter
   implicit none
   private
   !temp
-  integer, public, parameter :: GS_COMM_MPI_STRAGGLER = 4
 
   type, public :: gs_t
      real(kind=rp), allocatable :: local_gs(:) !< Buffer for local gs-ops
@@ -121,7 +120,7 @@ contains
     integer :: avg_strtgy, env_len
     character(len=255) :: env_strtgy, env_gscomm
     real(kind=dp) :: strtgy_time(4)
-    
+
     call gs%free()
 
     call neko_log%section('Gather-Scatter')
@@ -132,7 +131,7 @@ contains
     use_device_mpi = .false.
     use_device_nccl = .false.
     use_device_shmem = .false.
-    use_host_mpi = .false.    
+    use_host_mpi = .false.
     ! Check if a comm-backend is requested via env. variables
     call get_environment_variable("NEKO_GS_COMM", env_gscomm, env_len)
     if (env_len .gt. 0) then
@@ -184,7 +183,7 @@ contains
        allocate(gs_device_nccl_t::gs%comm)
     case (GS_COMM_NVSHMEM)
        call neko_log%message('Comm         :      NVSHMEM')
-       allocate(gs_device_shmem_t::gs%comm)       
+       allocate(gs_device_shmem_t::gs%comm)
     case default
        call neko_error('Unknown Gather-scatter comm. backend')
     end select

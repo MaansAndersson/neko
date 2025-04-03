@@ -23,6 +23,7 @@ module inexact_pc
   private
 
   type, public, extends(pc_t) :: inexact_pc_t
+    type(gs_t), pointer :: gs_s
     type(gs_t), pointer :: gs_h
     type(dofmap_t), pointer :: dof
     type(coef_t), pointer :: coef
@@ -51,12 +52,13 @@ contains
 
     !? Do I have to sync somewhere?
     this%temp_field = 0.0_rp
-    ksp_mon = this%M%solve(this%Ax, this%temp_field, r, n, this%coef, this%bclst, this%gs_h, this%inner_iter)
+    ksp_mon = this%M%solve(this%Ax, this%temp_field, r, n, this%coef, this%bclst, this%gs_s, this%inner_iter)
+    ksp_mon = this%M%solve(this%Ax, this%temp_field, r, n, this%coef, this%bclst, this%gs_h, 1)
 
 
-    write(*,*) ksp_mon%iter, &
-         ksp_mon%res_start, &
-         ksp_mon%res_final
+    !write(*,*) ksp_mon%iter, &
+    !     ksp_mon%res_start, &
+    !     ksp_mon%res_final
 
     if (NEKO_BCKND_DEVICE .eq. 1) then
       z_d = device_get_ptr(z)
@@ -72,10 +74,11 @@ contains
   end subroutine inexact_solve
 
 !> Init solver, system, gather-scatter-method (straggler).
-  subroutine inexact_init(this, Ax, M, inner_iter, coef, dof, gs_h, bclst)
+  subroutine inexact_init(this, Ax, M, inner_iter, coef, dof, gs_s, gs_h, bclst)
     class(inexact_pc_t), intent(inout) :: this
     class(ax_t), intent(in), target :: Ax
     class(ksp_t), intent(in), target :: M
+    type(gs_t), intent(in), target :: gs_s
     type(gs_t), intent(in), target :: gs_h
     type(dofmap_t), intent(in), target :: dof
     type(coef_t), intent(in), target :: coef
@@ -87,6 +90,7 @@ contains
     this%inner_iter = inner_iter
     this%Ax => Ax
     this%M => M
+    this%gs_s => gs_s
     this%gs_h => gs_h
     this%dof => dof
     this%coef => coef

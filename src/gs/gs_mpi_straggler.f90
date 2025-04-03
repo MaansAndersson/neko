@@ -1,4 +1,4 @@
-! Copyright (c) 2020-2022, The Neko Authors
+! Copyright (c) 2020-2025, The Neko Authors
 ! All rights reserved.
 !
 ! Redistribution and use in source and binary forms, with or without
@@ -33,7 +33,7 @@
 !> Defines MPI gather-scatter communication
 module gs_mpi_straggler
   use num_types, only : rp
-  use gs_comm, only : gs_comm_t, GS_COMM_MPI, GS_COMM_MPIGPU
+  use gs_comm, only : gs_comm_t !, GS_COMM_MPI, GS_COMM_MPIGPU
   use gs_ops, only : GS_OP_ADD, GS_OP_MAX, GS_OP_MIN, GS_OP_MUL
   use stack, only : stack_i4_t
   use comm
@@ -68,6 +68,8 @@ module gs_mpi_straggler
      procedure, pass(this) :: nbsend => gs_nbsend_mpi
      procedure, pass(this) :: nbrecv => gs_nbrecv_mpi
      procedure, pass(this) :: nbwait => gs_nbwait_mpi
+
+     !> Added method for setting tau
   end type gs_mpi_straggler_t
 
 contains
@@ -193,21 +195,22 @@ contains
     integer :: i, j, src, ierr
     integer :: op
     integer , pointer :: sp(:)
-    integer :: nreqs
+    integer :: nreqs, nreqs_1
 
     ! Temporary u used for straggling messages
     real(kind=rp), dimension(n) :: u_temp
     ! Borde vara this
     real(kind=rp) :: tau
 
-    tau = 0.7
+    tau = this%tau
     u_temp = u
-
+    
     ! Here we can put a percentage or a timeout?
-    nreqs = int(size(this%recv_pe)*tau)
-
+    nreqs_1 = int(size(this%recv_pe)*tau)
+    nreqs = nreqs - nreqs_1 !int(size(this%recv_pe)*(1-tau))
+   
     ! Add a timeout version.
-    do while (nreqs .gt. 0) !.or. (timeout)
+    do while (nreqs_1 .gt. 0) !.or. (timeout)
        do i = 1, size(this%recv_pe)
           if (.not. this%recv_buf(i)%flag) then
              ! Check if we have recieved the data we want
@@ -216,7 +219,7 @@ contains
              ! If it has been received
              if (this%recv_buf(i)%flag) then
                 ! One more request has been succesful
-                nreqs = nreqs - 1
+                nreqs_1 = nreqs_1 - 1
                 !> @todo Check size etc against status
                 src = this%recv_pe(i)
                 sp => this%recv_dof(src)%array()
@@ -248,7 +251,8 @@ contains
        end do
     end do
 
-    nreqs = int(size(this%recv_pe)*(1-tau))
+
+    
     ! Cancel the requsts that were not recieved on time
     ! and handle other side, could be zero instead of old value?
     ! change recv_pe to send_pe.
@@ -266,12 +270,14 @@ contains
           case (GS_OP_ADD)
              !NEC$ IVDEP
              do concurrent (j = 1:this%send_dof(src)%size())
-                u(sp(j)) = u(sp(j)) + u_temp(sp(j))
+                !u(sp(j)) = u(sp(j)) + u_temp(sp(j))
+                u(sp(j)) = 0
              end do
           case (GS_OP_MUL)
              !NEC$ IVDEP
              do concurrent (j = 1:this%send_dof(src)%size())
-                u(sp(j)) = u(sp(j)) * u_temp(sp(j))
+                !u(sp(j)) = u(sp(j)) * u_temp(sp(j))
+                u(sp(j)) = 0
              end do
           end select
         end if
@@ -282,17 +288,24 @@ contains
 
     ! Finally, check that the non-blocking sends this rank have issued have also
     ! completed successfully
-    !nreqs = size(this%send_pe)
-    !do while (nreqs .gt. 0)
-    !   do i = 1, size(this%send_pe)
-    !      if (.not. this%send_buf(i)%flag) then
-    !         call MPI_Test(this%send_buf(i)%request, this%send_buf(i)%flag, &
-    !              MPI_STATUS_IGNORE, ierr)
-    !         if (this%send_buf(i)%flag) nreqs = nreqs - 1
-    !      end if
-    !   end do
-    !end do
+    nreqs = size(this%send_pe)
+    do while (nreqs .gt. 0)
+       do i = 1, size(this%send_pe)
+          if (.not. this%send_buf(i)%flag) then
+             call MPI_Test(this%send_buf(i)%request, this%send_buf(i)%flag, &
+                  MPI_STATUS_IGNORE, ierr)
+             if (this%send_buf(i)%flag) nreqs = nreqs - 1
+          end if
+       end do
+    end do
 
   end subroutine gs_nbwait_mpi
+
+  ! Set the percentage of allowd messages
+  subroutine gs_set_tau_mpi(this, tau_)
+    class(gs_mpi_straggler_t), intent(inout) :: this
+    real(kind=rp) :: tau_
+    this%tau = tau_
+  end subroutine gs_set_tau_mpi
 
 end module gs_mpi_straggler

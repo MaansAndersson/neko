@@ -20,7 +20,7 @@ contains
        dx = dm%x(idx(1), idx(2), idx(3), idx(4)) - 4.0d0
        dy = dm%y(idx(1), idx(2), idx(3), idx(4)) - 4.0d0
        dz = dm%z(idx(1), idx(2), idx(3), idx(4)) - 4.0d0
-       f(i) = 500d0*exp(-(dx**arg + dy**arg + dz**arg)/arg)
+       f(i) = 500d0*cos(-(dx**arg + dy**arg + dz**arg)/arg)
     end do
   end subroutine set_f
 
@@ -58,8 +58,6 @@ end module setup
 program nekobench
   use neko
   use setup
-  use dace_math
-  use dace_ax_helm_device
   use inexact_pc
 
   implicit none
@@ -79,19 +77,22 @@ program nekobench
   type(ksp_monitor_t) :: ksp_mon
   type(dirichlet_t) :: dir_bc
   type(bc_list_t) :: bclst
-  integer :: argc, niter, ierr, lx, nelt, bcknd
+  integer :: argc, niter, ierr, lx, nelt 
+  real(kind=rp) :: tau
   integer :: i, n
+
   ! Inexact preconditioner
   class(ksp_t), allocatable :: solver_pc
   class(inexact_pc_t), allocatable :: pc
+  !class(gs_bcknd_t), allocatable :: bcknd !< Gather-scatter backend
+  type(gs_t) :: gs_mpi_straggler
+  
 
-
-  ! Dace
   argc = command_argument_count()
 
   if ((argc .lt. 4) .or. (argc .gt. 4)) then
-     write(*,*) 'Usage: ./nekobench <neko mesh> <N> <niter> <bcknd (dace : 0)>'
-     write(*,*) 'Use meshes from nekbone, e.g. ../nekobone/data.512.nmsh'
+     write(*,*) 'Usage: ./solver.bin <neko mesh> <N> <niter> <tau (percentage of messages in Cheby)>'
+     write(*,*) 'Use meshes from poisson, e.g. ../poisson/data.512.nmsh'
      stop
   end if
 
@@ -103,7 +104,7 @@ program nekobench
   call get_command_argument(3, lxchar)
   read(lxchar, *) niter
   call get_command_argument(4, lxchar)
-  read(lxchar, *) bcknd
+  read(lxchar, *) tau
 
   nmsh_file = file_t(fname)
   call nmsh_file%read(msh)
@@ -111,7 +112,9 @@ program nekobench
   !Init things
   call Xh%init(GLL, lx, lx, lx)
   call dm%init(msh,Xh)
-  call gs_h%init(dm)
+  call gs_h%init(dm,1,1)
+  call gs_mpi_straggler%init(dm,1,5) ! Add percentage
+  call gs_mpi_straggler%comm%set_tau(tau)
   call f1%init(dm)
   call f2%init(dm)
   call f3%init(dm)
@@ -121,7 +124,7 @@ program nekobench
   n_tot = dble(msh%glb_nelv)*dble(niter)*dble(Xh%lxyz) 
   n = dm%size()
   if (pe_rank .eq. 0) then
-     write(*,*) 'Nekobench '
+     write(*,*) 'Straggling Solver '
      write(*,*) 'lx:', lx
      write(*,*) 'N elements tot:', msh%glb_nelv
      write(*,*) 'N ranks:', pe_size
@@ -142,10 +145,10 @@ program nekobench
   call device_sync()
 
   call MPI_Barrier(NEKO_COMM, ierr)
-  t0 = MPI_Wtime()
-  t1 = MPI_Wtime()
-  time = t1 - t0
-
+  
+  
+  
+  
   !example us of cg solver
   !init bcs...
   call dir_bc%init_from_components(coef,real(0.0d0,rp))
@@ -157,35 +160,37 @@ program nekobench
   call bclst%init()
   call bclst%append(dir_bc)
 
-  abstol = 1e-16
+  abstol = 1e-4
 
   call ax_helm_factory(ax_helm, .FALSE.)
-  call krylov_solver_factory(solver_pc, dm%size(), 'gmres', niter, abstol)
-  !allocate(device_inexact_pc_t::pc)
+  call krylov_solver_factory(solver_pc, dm%size(), 'cheby', niter, abstol)
+  ! create a Chebyshev iteration with gs_mpi_straggler
+  ! change gs_h such that it is a gs that times out for small ts
+
   allocate(inexact_pc_t::pc)
   select type (pc => pc)
-  ! change gs_h such that it is a gs that times out for small ts
-  !type is (device_inexact_pc_t)
-  !  call pc%init(ax_helm, solver_pc, 15, coef, dm, gs_h, bclst)
+
   type is (inexact_pc_t)
-    call pc%init(ax_helm, solver_pc, 15, coef, dm, gs_h, bclst)
+    call pc%init(ax_helm, solver_pc, 100, coef, dm, gs_mpi_straggler, gs_h, bclst)
   end select
+  abstol = 1e-2! Something small so we dont converge
 
-  abstol = 1e-14! Something small so we dont converge
+
   call krylov_solver_factory(solver, dm%size(), 'gmres', niter, abstol, pc)
+  f2 = 0.0_rp
+  t0 = MPI_Wtime()
 
-
-  f2 = 1.0_rp
-
-  !if (bcknd .eq. 0) then
-  !ksp_mon = solver%solve(dace_ax_helm, f2, f1%x, dm%size(), coef, bclst, gs_h, niter)
-  !else
   ksp_mon = solver%solve(ax_helm, f2, f1%x, dm%size(), coef, bclst, gs_h, niter)
-  !end if
+
+  t1 = MPI_Wtime()
+  time = t1 - t0
 
   write(*,*) ksp_mon%iter, &
          ksp_mon%res_start, &
-         ksp_mon%res_final
+         ksp_mon%res_final, &
+         time
+
+
 
   if (NEKO_BCKND_DEVICE .eq. 1) &
      call device_memcpy(f2%x, f2%x_d, n, DEVICE_TO_HOST, sync=.true.)

@@ -40,7 +40,7 @@ module gs_comm
   private
 
   integer, public, parameter :: GS_COMM_MPI = 1, GS_COMM_MPIGPU = 2, &       
-       GS_COMM_NCCL = 3, GS_COMM_NVSHMEM = 4
+       GS_COMM_NCCL = 3, GS_COMM_NVSHMEM = 4, GS_COMM_MPI_STRAGGLER = 5
 
   !> Gather-scatter communication method
   type, public, abstract :: gs_comm_t
@@ -55,6 +55,8 @@ module gs_comm
      integer, allocatable :: send_pe(:)
      !> array of ranks that this process will receive messages from
      integer, allocatable :: recv_pe(:)
+     !> Only relevant for Straggler
+     real(kind=rp) :: tau = 0.8
    contains
      procedure(gs_comm_init), pass(this), deferred :: init
      procedure(gs_comm_free), pass(this), deferred :: free
@@ -65,6 +67,7 @@ module gs_comm
      procedure, pass(this) :: free_dofs
      procedure, pass(this) :: init_order
      procedure, pass(this) :: free_order
+     procedure, pass(this) :: set_tau
   end type gs_comm_t
 
   !> Abstract interface for initializing a Gather-scatter communication method
@@ -217,5 +220,12 @@ contains
     end if
 
   end subroutine free_order
+
+  subroutine set_tau(this, tau_)
+    class(gs_comm_t), intent(inout) :: this
+    real(kind=rp) :: tau_
+    this%tau = tau_
+  end subroutine set_tau 
+
 
 end module gs_comm
