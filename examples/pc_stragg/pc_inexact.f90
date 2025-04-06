@@ -50,16 +50,20 @@ contains
     type(ksp_monitor_t) :: ksp_mon
     type(c_ptr) :: z_d, r_d
 
-    !? Do I have to sync somewhere?
+    ! Init guess for preconditioner
     this%temp_field = 0.0_rp
-    ksp_mon = this%M%solve(this%Ax, this%temp_field, r, n, this%coef, this%bclst, this%gs_s, this%inner_iter)
-    ksp_mon = this%M%solve(this%Ax, this%temp_field, r, n, this%coef, this%bclst, this%gs_h, 1)
 
+    ! Solver using gs_s
+    ksp_mon = this%M%solve(this%Ax, this%temp_field, r, n, this%coef, this%bclst, this%gs_s, this%inner_iter)
+
+    ! Solver using gs_h
+    ksp_mon = this%M%solve(this%Ax, this%temp_field, r, n, this%coef, this%bclst, this%gs_h, 1)
 
     !write(*,*) ksp_mon%iter, &
     !     ksp_mon%res_start, &
     !     ksp_mon%res_final
 
+    ! Maybe split
     if (NEKO_BCKND_DEVICE .eq. 1) then
       z_d = device_get_ptr(z)
       call device_copy(z_d,this%temp_field%x_d,n)
@@ -67,9 +71,16 @@ contains
       call copy(z, this%temp_field%x, n)
     endif
 
-    write(*,*) ksp_mon%iter, &
-         ksp_mon%res_start, &
-         ksp_mon%res_final
+    ! Evaluate the residual
+    !call copy(r, f, n)
+    !call ax%compute(w, x%x, coef, x%msh, x%Xh)
+    !call gs_h%op(w, n, GS_OP_ADD)
+    !call blst%apply(w, n)
+    !call sub2(r, w, n)
+    !rtr = glsc3(r, coef%mult, r, n)
+    !rnorm = sqrt(rtr) * norm_fac
+    !write (*,*) rnorm
+
 
   end subroutine inexact_solve
 

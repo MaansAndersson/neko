@@ -20,7 +20,7 @@ contains
        dx = dm%x(idx(1), idx(2), idx(3), idx(4)) - 4.0d0
        dy = dm%y(idx(1), idx(2), idx(3), idx(4)) - 4.0d0
        dz = dm%z(idx(1), idx(2), idx(3), idx(4)) - 4.0d0
-       f(i) = 500d0*cos(-(dx**arg + dy**arg + dz**arg)/arg)
+       f(i) = 500d0*exp(-(dx**arg + dy**arg + dz**arg)/arg)
     end do
   end subroutine set_f
 
@@ -59,6 +59,7 @@ program nekobench
   use neko
   use setup
   use inexact_pc
+  !use cheby_stragg
 
   implicit none
 
@@ -160,10 +161,10 @@ program nekobench
   call bclst%init()
   call bclst%append(dir_bc)
 
-  abstol = 1e-4
+  abstol = 1e-5
 
   call ax_helm_factory(ax_helm, .FALSE.)
-  call krylov_solver_factory(solver_pc, dm%size(), 'cheby', niter, abstol)
+  call krylov_solver_factory(solver_pc, dm%size(), 'cg', niter, abstol)
   ! create a Chebyshev iteration with gs_mpi_straggler
   ! change gs_h such that it is a gs that times out for small ts
 
@@ -171,7 +172,7 @@ program nekobench
   select type (pc => pc)
 
   type is (inexact_pc_t)
-    call pc%init(ax_helm, solver_pc, 100, coef, dm, gs_mpi_straggler, gs_h, bclst)
+    call pc%init(ax_helm, solver_pc, 10, coef, dm, gs_mpi_straggler, gs_h, bclst)
   end select
   abstol = 1e-2! Something small so we dont converge
 
@@ -188,9 +189,8 @@ program nekobench
   write(*,*) ksp_mon%iter, &
          ksp_mon%res_start, &
          ksp_mon%res_final, &
+         ksp_mon%converged, &
          time
-
-
 
   if (NEKO_BCKND_DEVICE .eq. 1) &
      call device_memcpy(f2%x, f2%x_d, n, DEVICE_TO_HOST, sync=.true.)
