@@ -36,6 +36,7 @@ module gs_mpi_straggler
   use gs_comm, only : gs_comm_t !, GS_COMM_MPI, GS_COMM_MPIGPU
   use gs_ops, only : GS_OP_ADD, GS_OP_MAX, GS_OP_MIN, GS_OP_MUL
   use stack, only : stack_i4_t
+  use math, only : copy
   use comm
   use, intrinsic :: iso_c_binding
   !$ use omp_lib
@@ -203,8 +204,9 @@ contains
     real(kind=rp) :: tau
 
     tau = this%tau
-    u_temp = u
-    
+    !u_temp = u
+    call copy(u_temp, u, n)
+
     ! Here we can put a percentage or a timeout?
     nreqs_1 = int(size(this%recv_pe)*tau)
     nreqs = nreqs - nreqs_1 !int(size(this%recv_pe)*(1-tau))
@@ -270,14 +272,14 @@ contains
           case (GS_OP_ADD)
              !NEC$ IVDEP
              do concurrent (j = 1:this%send_dof(src)%size())
-                !u(sp(j)) = u(sp(j)) + u_temp(sp(j))
-                u(sp(j)) = 0
+                u(sp(j)) = u(sp(j)) + u_temp(sp(j))
+                !u(sp(j)) = 0
              end do
           case (GS_OP_MUL)
              !NEC$ IVDEP
              do concurrent (j = 1:this%send_dof(src)%size())
-                !u(sp(j)) = u(sp(j)) * u_temp(sp(j))
-                u(sp(j)) = 0
+                u(sp(j)) = u(sp(j)) * u_temp(sp(j))
+                !u(sp(j)) = 0
              end do
           end select
         end if
