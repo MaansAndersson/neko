@@ -48,6 +48,7 @@ gs/bcknd/device/gs_device.lo : gs/bcknd/device/gs_device.F90 common/utils.lo dev
 gs/gs_ops.lo : gs/gs_ops.f90 
 gs/gs_comm.lo : gs/gs_comm.f90 adt/stack.lo comm/comm.lo config/num_types.lo 
 gs/gs_mpi.lo : gs/gs_mpi.f90 common/utils.lo comm/comm.lo adt/stack.lo gs/gs_ops.lo gs/gs_comm.lo config/num_types.lo 
+gs/gs_mpi_straggler.lo : gs/gs_mpi_straggler.f90 common/utils.lo comm/comm.lo adt/stack.lo gs/gs_ops.lo gs/gs_comm.lo config/num_types.lo 
 gs/bcknd/device/gs_device_mpi.lo : gs/bcknd/device/gs_device_mpi.F90 common/utils.lo device/device.lo adt/htable.lo comm/comm.lo adt/stack.lo gs/gs_comm.lo config/num_types.lo 
 gs/bcknd/device/gs_device_nccl.lo : gs/bcknd/device/gs_device_nccl.F90 common/utils.lo device/device.lo adt/htable.lo comm/comm.lo adt/stack.lo gs/gs_comm.lo config/num_types.lo 
 gs/bcknd/device/gs_device_shmem.lo : gs/bcknd/device/gs_device_shmem.F90 common/utils.lo comm/comm.lo device/device.lo adt/htable.lo adt/stack.lo gs/gs_comm.lo config/num_types.lo 
